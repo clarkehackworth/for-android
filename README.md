@@ -1,6 +1,6 @@
 <div align="center">
     <h1>Stoat for Android</h1>
-    <h3>Home Edition</h3>
+    <h3>Home Edition (non-official - local)</h3>
     <p>Official <a href="https://stoat.chat">Stoat</a> Android app.</p>
     <br/><br/>
     <div>
