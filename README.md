@@ -1,5 +1,6 @@
 <div align="center">
     <h1>Stoat for Android</h1>
+    <h3>Home Edition</h3>
     <p>Official <a href="https://stoat.chat">Stoat</a> Android app.</p>
     <br/><br/>
     <div>
@@ -9,6 +10,13 @@
     <small>Google Play is a trademark of Google LLC.</small>
     <br/><br/><br/>
 </div>
+
+## Home Edition
+
+This is a fork of the official Stoat Android app with added support for connecting to a self-hosted
+Stoat server. On the login screen, a **Custom server** button lets you enter your own API and
+WebSocket URLs before signing in. The custom URLs are saved locally and restored on next launch, so
+you only need to set them once.
 
 ## Description
 

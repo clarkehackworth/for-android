@@ -4,12 +4,16 @@ import android.app.Application
 import android.content.Context
 import android.os.Build
 import android.os.StrictMode
+import chat.stoat.core.model.data.STOAT_BASE
+import chat.stoat.core.model.data.STOAT_WEBSOCKET
 import chat.stoat.di.appModule
 import chat.stoat.di.viewModelModule
+import chat.stoat.persistence.KVStorage
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.request.crossfade
 import com.google.android.material.color.DynamicColors
+import kotlinx.coroutines.runBlocking
 import logcat.AndroidLogcatLogger
 import logcat.LogPriority
 import org.koin.android.ext.koin.androidContext
@@ -24,6 +28,12 @@ class StoatApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         AndroidLogcatLogger.installOnDebuggableApp(this, minPriority = LogPriority.VERBOSE)
+
+        runBlocking {
+            val kv = KVStorage(this@StoatApplication)
+            kv.get("custom_api_url")?.let { STOAT_BASE = it }
+            kv.get("custom_ws_url")?.let { STOAT_WEBSOCKET = it }
+        }
 
         startKoin {
             androidContext(this@StoatApplication)

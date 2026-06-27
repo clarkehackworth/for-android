@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,15 +49,78 @@ import chat.stoat.BuildConfig
 import chat.stoat.R
 import chat.stoat.composables.generic.AnyLink
 import chat.stoat.composables.generic.Weblink
+import chat.stoat.core.model.data.STOAT_BASE
+import chat.stoat.core.model.data.STOAT_BASE_DEFAULT
 import chat.stoat.core.model.data.STOAT_MARKETING
+import chat.stoat.core.model.data.STOAT_WEBSOCKET
+import chat.stoat.core.model.data.STOAT_WEBSOCKET_DEFAULT
+import chat.stoat.persistence.KVStorage
 import com.chuckerteam.chucker.api.Chucker
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LoginGreetingScreen(navController: NavController) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var catTaps by remember { mutableIntStateOf(0) }
     var showBoringButton by remember { mutableStateOf(false) }
+    var showCustomServerDialog by remember { mutableStateOf(false) }
+    var customApiUrl by remember { mutableStateOf(STOAT_BASE) }
+    var customWsUrl by remember { mutableStateOf(STOAT_WEBSOCKET) }
+
+    if (showCustomServerDialog) {
+        AlertDialog(
+            onDismissRequest = { showCustomServerDialog = false },
+            title = { Text("Custom Server") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = customApiUrl,
+                        onValueChange = { customApiUrl = it },
+                        label = { Text("API URL") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = customWsUrl,
+                        onValueChange = { customWsUrl = it },
+                        label = { Text("WebSocket URL") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val api = customApiUrl.trimEnd('/')
+                    val ws = customWsUrl.trimEnd('/')
+                    STOAT_BASE = api.ifBlank { STOAT_BASE_DEFAULT }
+                    STOAT_WEBSOCKET = ws.ifBlank { STOAT_WEBSOCKET_DEFAULT }
+                    scope.launch {
+                        val kv = KVStorage(context)
+                        kv.set("custom_api_url", STOAT_BASE)
+                        kv.set("custom_ws_url", STOAT_WEBSOCKET)
+                    }
+                    showCustomServerDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    STOAT_BASE = STOAT_BASE_DEFAULT
+                    STOAT_WEBSOCKET = STOAT_WEBSOCKET_DEFAULT
+                    customApiUrl = STOAT_BASE_DEFAULT
+                    customWsUrl = STOAT_WEBSOCKET_DEFAULT
+                    scope.launch {
+                        val kv = KVStorage(context)
+                        kv.remove("custom_api_url")
+                        kv.remove("custom_ws_url")
+                    }
+                    showCustomServerDialog = false
+                }) { Text("Reset to default") }
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -169,6 +235,26 @@ fun LoginGreetingScreen(navController: NavController) {
                             text = "(beta)",
                             color = LocalContentColor.current.copy(alpha = 0.5f),
                             fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            TextButton(
+                onClick = { showCustomServerDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "Custom server", textAlign = TextAlign.Center)
+                    if (STOAT_BASE != STOAT_BASE_DEFAULT) {
+                        Text(
+                            text = STOAT_BASE,
+                            color = LocalContentColor.current.copy(alpha = 0.5f),
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Normal,
                             textAlign = TextAlign.Center
                         )
