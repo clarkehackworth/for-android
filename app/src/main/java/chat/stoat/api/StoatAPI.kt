@@ -240,6 +240,12 @@ object StoatAPI {
         return selfId != null
     }
 
+    suspend fun reconnect() {
+        socketCoroutine?.cancel()
+        RealtimeSocket.updateDisconnectionState(DisconnectionState.Reconnecting)
+        connectWS()
+    }
+
     /**
      * Clears the API client's state completely.
      */

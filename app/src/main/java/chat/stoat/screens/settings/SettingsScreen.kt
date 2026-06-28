@@ -2,14 +2,17 @@ package chat.stoat.screens.settings
 
 import android.content.Intent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -18,11 +21,18 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -42,7 +52,12 @@ import chat.stoat.api.StoatAPI
 import chat.stoat.api.settings.FeatureFlags
 import chat.stoat.api.settings.LoadedSettings
 import chat.stoat.composables.generic.ListHeader
+import chat.stoat.core.model.data.STOAT_BASE
+import chat.stoat.core.model.data.STOAT_BASE_DEFAULT
+import chat.stoat.core.model.data.STOAT_WEBSOCKET
+import chat.stoat.core.model.data.STOAT_WEBSOCKET_DEFAULT
 import chat.stoat.persistence.KVStorage
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.koin.androidx.compose.koinViewModel
 
@@ -68,7 +83,66 @@ fun SettingsScreen(
     viewModel: SettingsScreenViewModel = koinViewModel()
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var showCustomServerDialog by remember { mutableStateOf(false) }
+    var customApiUrl by remember { mutableStateOf(STOAT_BASE) }
+    var customWsUrl by remember { mutableStateOf(STOAT_WEBSOCKET) }
+
+    if (showCustomServerDialog) {
+        AlertDialog(
+            onDismissRequest = { showCustomServerDialog = false },
+            title = { Text("Custom Server") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = customApiUrl,
+                        onValueChange = { customApiUrl = it },
+                        label = { Text("API URL") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = customWsUrl,
+                        onValueChange = { customWsUrl = it },
+                        label = { Text("WebSocket URL") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val api = customApiUrl.trimEnd('/')
+                    val ws = customWsUrl.trimEnd('/')
+                    STOAT_BASE = api.ifBlank { STOAT_BASE_DEFAULT }
+                    STOAT_WEBSOCKET = ws.ifBlank { STOAT_WEBSOCKET_DEFAULT }
+                    scope.launch {
+                        val kv = KVStorage(context)
+                        kv.set("custom_api_url", STOAT_BASE)
+                        kv.set("custom_ws_url", STOAT_WEBSOCKET)
+                        StoatAPI.reconnect()
+                    }
+                    showCustomServerDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    STOAT_BASE = STOAT_BASE_DEFAULT
+                    STOAT_WEBSOCKET = STOAT_WEBSOCKET_DEFAULT
+                    customApiUrl = STOAT_BASE_DEFAULT
+                    customWsUrl = STOAT_WEBSOCKET_DEFAULT
+                    scope.launch {
+                        val kv = KVStorage(context)
+                        kv.remove("custom_api_url")
+                        kv.remove("custom_ws_url")
+                        StoatAPI.reconnect()
+                    }
+                    showCustomServerDialog = false
+                }) { Text("Reset to default") }
+            }
+        )
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -205,6 +279,24 @@ fun SettingsScreen(
                         modifier = Modifier
                             .testTag("settings_view_chat")
                             .clickable { navController.navigate("settings/chat") }
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    SettingsListItem(
+                        headlineContent = { Text(text = "Custom Server") },
+                        supportingContent = { Text(text = STOAT_BASE) },
+                        leadingContent = {
+                            SettingsIcon {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_link_24dp),
+                                    contentDescription = null,
+                                )
+                            }
+                        },
+                        modifier = Modifier.clickable {
+                            customApiUrl = STOAT_BASE
+                            customWsUrl = STOAT_WEBSOCKET
+                            showCustomServerDialog = true
+                        }
                     )
                     Spacer(Modifier.height(2.dp))
                     SettingsListItem(
